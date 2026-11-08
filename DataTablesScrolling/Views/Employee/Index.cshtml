@@ -1,0 +1,134 @@
+﻿@model IEnumerable<DataTablesScrolling.Models.Employee>
+@{
+    ViewData["Title"] = "DataTables Horizontal Scroll Fix";
+}
+
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" />
+
+<style>
+    .table-wrapper {
+        width: 100%;
+        margin-top: 1.5rem;
+    }
+
+    /* Prevent header and body table width discrepancies */
+    .dataTables_wrapper {
+        width: 100% !important;
+        margin: 0 auto;
+    }
+
+    /* Force the inner scroll header table to match body dimension */
+    .dataTables_scrollHeadInner,
+    .dataTables_scrollHeadInner > table.dataTable {
+        width: 100% !important;
+    }
+
+    table.dataTable {
+        margin: 0 !important;
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">Employee Records (Server-Side Pagination & Fixed Header Alignment)</h5>
+        </div>
+        <div class="card-body">
+            <!-- Anti-Forgery Token Form Wrapper -->
+            <form id="antiForgeryForm">
+                @Html.AntiForgeryToken()
+            </form>
+
+            <div class="table-wrapper">
+                <table id="employeeDataTable" class="display nowrap table table-striped table-bordered" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Full Name</th>
+                            <th>Position</th>
+                            <th>Department</th>
+                            <th>Office</th>
+                            <th>Age</th>
+                            <th>Start Date</th>
+                            <th>Salary</th>
+                            <th>Email Address</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Retrieve anti-forgery token from form
+            var token = $('#antiForgeryForm input[name="__RequestVerificationToken"]').val();
+
+            var table = $('#employeeDataTable').DataTable({
+                processing: true,
+                serverSide: true,
+                scrollX: true,          // Enable horizontal scrolling
+                scrollCollapse: true,
+                autoWidth: false,       // Prevents early static column width calculations
+
+                // Correct AJAX call to ASP.NET Core Controller Action
+                ajax: {
+                    url: '@Url.Action("GetEmployeeData", "Employee")',
+                    type: 'POST',
+                    headers: {
+                        "RequestVerificationToken": token // Sends CSRF token in request header
+                    },
+                    data: function(d) {
+                        // 'd' automatically contains draw, start, length, search, etc.
+                        // You can append extra custom filters here if needed:
+                        // d.customFilter = $('#filterDropdown').val();
+                        return d;
+                    },
+                    error: function(xhr, error, code) {
+                        console.error("AJAX Error:", error, code, xhr.responseText);
+                    }
+                },
+                columns: [
+                    { data: 'id', name: 'Id' },
+                    { data: 'fullName', name: 'FullName' },
+                    { data: 'position', name: 'Position' },
+                    { data: 'department', name: 'Department' },
+                    { data: 'office', name: 'Office' },
+                    { data: 'age', name: 'Age' },
+                    { data: 'startDate', name: 'StartDate' },
+                    { data: 'salary', name: 'Salary' },
+                    { data: 'email', name: 'Email' }
+                ],
+
+                // FIX 1: Recalculate column headers right after data finishes loading
+                initComplete: function() {
+                    var api = this.api();
+                    setTimeout(function() {
+                        api.columns.adjust();
+                    }, 50);
+                }
+            });
+
+            // FIX 2: Recalculate column widths when viewport changes
+            $(window).on('resize', function() {
+                table.columns.adjust();
+            });
+
+            // FIX 3: Recalculate if the table is placed inside hidden tabs or Bootstrap modals
+            $('button[data-bs-toggle="tab"], a[data-toggle="tab"]').on('shown.bs.tab', function() {
+                table.columns.adjust();
+            });
+
+            $('.modal').on('shown.bs.modal', function() {
+                table.columns.adjust();
+            });
+        });
+    </script>
+}
